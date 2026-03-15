@@ -50,8 +50,16 @@ func (r *Repository) Ensure(ctx context.Context) error {
 }
 
 func (r *Repository) ExistingTimestamps(ctx context.Context) ([]time.Time, error) {
-	if err := r.Ensure(ctx); err != nil {
-		return nil, err
+	if strings.TrimSpace(r.Dir) == "" {
+		return nil, errors.New("mirror directory is required")
+	}
+
+	gitDir := filepath.Join(r.Dir, ".git")
+	if _, err := os.Stat(gitDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("stat mirror git directory %s: %w", gitDir, err)
 	}
 
 	output, err := r.runGit(ctx, nil, "log", "--pretty=format:%aI")

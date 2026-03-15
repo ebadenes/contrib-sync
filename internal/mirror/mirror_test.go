@@ -127,6 +127,18 @@ func TestWriteFileCreatesMirrorReadme(t *testing.T) {
 	}
 }
 
+func TestExistingTimestampsReturnsEmptyWhenMirrorRepoDoesNotExist(t *testing.T) {
+	repo := NewRepository(t.TempDir()+"/missing-mirror", "alice@example.com")
+
+	timestamps, err := repo.ExistingTimestamps(context.Background())
+	if err != nil {
+		t.Fatalf("existing timestamps: %v", err)
+	}
+	if len(timestamps) != 0 {
+		t.Fatalf("expected no timestamps, got %d", len(timestamps))
+	}
+}
+
 func runGitTest(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
