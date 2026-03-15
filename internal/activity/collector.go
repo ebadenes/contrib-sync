@@ -128,9 +128,13 @@ func collectReviews(ctx context.Context, source Source, repo gitea.Repository, o
 	events := make([]Event, 0)
 	username := strings.TrimSpace(opts.Username)
 	for _, pr := range pulls {
-		reviews, err := source.ListPullRequestReviews(ctx, repo.Owner.Login, repo.Name, pr.Index)
+		prNumber := pr.NumberOrIndex()
+		if prNumber <= 0 {
+			continue
+		}
+		reviews, err := source.ListPullRequestReviews(ctx, repo.Owner.Login, repo.Name, prNumber)
 		if err != nil {
-			return nil, fmt.Errorf("collect reviews for %s pull request #%d: %w", repo.FullName, pr.Index, err)
+			return nil, fmt.Errorf("collect reviews for %s pull request #%d: %w", repo.FullName, prNumber, err)
 		}
 		for _, review := range reviews {
 			if review.User == nil || strings.TrimSpace(review.User.Login) != username {

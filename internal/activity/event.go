@@ -90,11 +90,12 @@ func NewCommitEvent(repo gitea.Repository, commit gitea.Commit, copyMessages boo
 }
 
 func NewPullRequestEvent(repo gitea.Repository, pr gitea.PullRequest, copyMessages bool) (Event, bool) {
-	if pr.CreatedAt.IsZero() {
+	prNumber := pr.NumberOrIndex()
+	if pr.CreatedAt.IsZero() || prNumber <= 0 {
 		return Event{}, false
 	}
 
-	message := defaultMessage(TypePR, repo.FullName, strconv.FormatInt(pr.Index, 10))
+	message := defaultMessage(TypePR, repo.FullName, strconv.FormatInt(prNumber, 10))
 	if copyMessages && strings.TrimSpace(pr.Title) != "" {
 		message = strings.TrimSpace(pr.Title)
 	}
@@ -104,7 +105,7 @@ func NewPullRequestEvent(repo gitea.Repository, pr gitea.PullRequest, copyMessag
 		Repository: repo.FullName,
 		Owner:      repo.Owner.Login,
 		Name:       repo.Name,
-		SourceID:   strconv.FormatInt(pr.Index, 10),
+		SourceID:   strconv.FormatInt(prNumber, 10),
 		Title:      strings.TrimSpace(pr.Title),
 		Message:    message,
 		Timestamp:  pr.CreatedAt.UTC(),
@@ -134,11 +135,12 @@ func NewIssueEvent(repo gitea.Repository, issue gitea.Issue, copyMessages bool) 
 }
 
 func NewReviewEvent(repo gitea.Repository, pr gitea.PullRequest, review gitea.Review, copyMessages bool) (Event, bool) {
-	if review.SubmittedAt == nil || review.SubmittedAt.IsZero() {
+	prNumber := pr.NumberOrIndex()
+	if review.SubmittedAt == nil || review.SubmittedAt.IsZero() || prNumber <= 0 {
 		return Event{}, false
 	}
 
-	sourceID := fmt.Sprintf("%d:%d", pr.Index, review.ID)
+	sourceID := fmt.Sprintf("%d:%d", prNumber, review.ID)
 	message := defaultMessage(TypeReview, repo.FullName, sourceID)
 	if copyMessages && strings.TrimSpace(review.Body) != "" {
 		message = strings.TrimSpace(review.Body)

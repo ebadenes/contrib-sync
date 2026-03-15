@@ -83,7 +83,7 @@ func TestCollectFiltersReviewsByUsername(t *testing.T) {
 	repo := gitea.Repository{Name: "demo", FullName: "alice/demo", Owner: gitea.Owner{Login: "alice"}}
 	source := &fakeSource{
 		pulls: map[string][]gitea.PullRequest{
-			"alice/demo": {{Index: 9, Title: "PR", CreatedAt: timestamp}},
+			"alice/demo": {{Number: 9, Title: "PR", CreatedAt: timestamp}},
 		},
 		reviews: map[string][]gitea.Review{
 			"alice/demo#9": {

@@ -82,7 +82,7 @@ func TestListPullRequestsUsesPosterAndState(t *testing.T) {
 
 		_ = json.NewEncoder(w).Encode([]PullRequest{{
 			ID:        10,
-			Index:     7,
+			Number:    7,
 			Title:     "Add sync status",
 			State:     "closed",
 			Merged:    true,
@@ -100,8 +100,8 @@ func TestListPullRequestsUsesPosterAndState(t *testing.T) {
 	if got, want := len(pulls), 1; got != want {
 		t.Fatalf("unexpected pull request count: got %d want %d", got, want)
 	}
-	if got, want := pulls[0].Index, int64(7); got != want {
-		t.Fatalf("unexpected pull request index: got %d want %d", got, want)
+	if got, want := pulls[0].NumberOrIndex(), int64(7); got != want {
+		t.Fatalf("unexpected pull request number: got %d want %d", got, want)
 	}
 	if pulls[0].CreatedAt.IsZero() {
 		t.Fatal("expected created_at to be parsed")

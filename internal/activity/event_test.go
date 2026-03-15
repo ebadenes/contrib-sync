@@ -36,7 +36,7 @@ func TestNewReviewEventUsesFallbackMessageWhenBodyMissing(t *testing.T) {
 	repo := gitea.Repository{Name: "demo", FullName: "alice/demo", Owner: gitea.Owner{Login: "alice"}}
 	submittedAt := time.Date(2026, 3, 15, 11, 0, 0, 0, time.UTC)
 
-	event, ok := NewReviewEvent(repo, gitea.PullRequest{Index: 42}, gitea.Review{
+	event, ok := NewReviewEvent(repo, gitea.PullRequest{Number: 42}, gitea.Review{
 		ID:          99,
 		State:       "APPROVED",
 		SubmittedAt: &submittedAt,

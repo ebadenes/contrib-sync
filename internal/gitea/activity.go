@@ -44,6 +44,7 @@ type ListCommitOptions struct {
 type PullRequest struct {
 	ID        int64      `json:"id"`
 	Index     int64      `json:"index"`
+	Number    int64      `json:"number"`
 	Title     string     `json:"title"`
 	Body      string     `json:"body"`
 	State     string     `json:"state"`
@@ -54,6 +55,13 @@ type PullRequest struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
 	MergedAt  *time.Time `json:"merged_at"`
+}
+
+func (pr PullRequest) NumberOrIndex() int64 {
+	if pr.Index > 0 {
+		return pr.Index
+	}
+	return pr.Number
 }
 
 type ListPullRequestOptions struct {
