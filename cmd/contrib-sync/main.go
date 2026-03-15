@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/ebadenes/contrib-sync/internal/activity"
 	"github.com/ebadenes/contrib-sync/internal/config"
 	"github.com/ebadenes/contrib-sync/internal/gitea"
 )
@@ -62,13 +64,37 @@ func runSync(args []string) {
 		os.Exit(1)
 	}
 
+	events, err := activity.Collect(ctx, client, repos, activity.CollectOptions{
+		Username:      cfg.Gitea.Username,
+		Since:         cfg.Sync.Since,
+		ActivityTypes: cfg.Sync.ActivityTypes,
+		CopyMessages:  cfg.Sync.CopyMessages,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sync: collect activity: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Fprintf(os.Stdout, "loaded config from %s\n", path)
 	fmt.Fprintf(os.Stdout, "discovered %d repositories after filtering\n", len(repos))
+	counts := activity.CountByType(events)
+	fmt.Fprintf(os.Stdout, "collected %d normalized activity events\n", len(events))
+	for _, line := range activitySummaryLines(counts) {
+		fmt.Fprintln(os.Stdout, line)
+	}
+	fmt.Fprintln(os.Stdout, "")
 	for _, repo := range repos {
 		fmt.Fprintf(os.Stdout, "- %s/%s\n", repo.Owner.Login, repo.Name)
 	}
+	if len(events) > 0 {
+		fmt.Fprintln(os.Stdout, "")
+		fmt.Fprintln(os.Stdout, "first collected events:")
+		for _, event := range previewEvents(events, 10) {
+			fmt.Fprintf(os.Stdout, "- %s | %s | %s\n", event.Timestamp.Format(time.RFC3339), event.Type, event.Repository)
+		}
+	}
 	fmt.Fprintln(os.Stdout, "")
-	fmt.Fprintln(os.Stdout, "sync command is scaffolded; contribution collection and mirror writes are pending")
+	fmt.Fprintln(os.Stdout, "mirror writing is still pending")
 }
 
 func runStatus(args []string) {
@@ -175,4 +201,25 @@ func gitStatus() string {
 		return "missing"
 	}
 	return "available"
+}
+
+func activitySummaryLines(counts map[string]int) []string {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	lines := make([]string, 0, len(keys))
+	for _, key := range keys {
+		lines = append(lines, fmt.Sprintf("- %s: %d", key, counts[key]))
+	}
+	return lines
+}
+
+func previewEvents(events []activity.Event, limit int) []activity.Event {
+	if len(events) <= limit {
+		return events
+	}
+	return events[:limit]
 }
