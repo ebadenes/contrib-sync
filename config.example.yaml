@@ -1,0 +1,22 @@
+gitea:
+  url: "https://gitea.example.com"
+  token: "replace-with-token"
+  username: "your-username"
+  orgs: []
+
+mirror:
+  dir: "/mirror"
+  email: "your-github-email@example.com"
+  remote: "origin"
+
+sync:
+  since: "2024-01-01T00:00:00Z"
+  activity_types:
+    - commits
+    - prs
+    - issues
+    - reviews
+  copy_messages: false
+  exclude_repos: []
+  exclude_forks: true
+  exclude_archived: true
