@@ -23,6 +23,8 @@ This repository is in early development. The initial scaffold is in place and th
 - `contrib-sync status`
 - `contrib-sync version`
 
+`contrib-sync sync --dry-run` collects, deduplicates, and reports pending activity without writing commits to the mirror repository.
+
 ## Development
 
 ### Requirements

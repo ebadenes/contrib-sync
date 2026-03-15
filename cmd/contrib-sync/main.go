@@ -23,7 +23,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stdout, "A CLI to mirror contribution timestamps from Gitea into a GitHub mirror repository.")
 	fmt.Fprintln(os.Stdout, "")
 	fmt.Fprintln(os.Stdout, "Usage:")
-	fmt.Fprintln(os.Stdout, "  contrib-sync sync [--config path]")
+	fmt.Fprintln(os.Stdout, "  contrib-sync sync [--config path] [--dry-run]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync init [--config path]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync status [--config path]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync version")
@@ -54,7 +54,17 @@ func main() {
 }
 
 func runSync(args []string) {
-	cfg, path := mustLoadConfig(args, "sync")
+	fs := flag.NewFlagSet("sync", flag.ExitOnError)
+	configPath := fs.String("config", config.DefaultConfigPath(), "Path to the YAML configuration file")
+	dryRun := fs.Bool("dry-run", false, "Collect and report activity without writing commits to the mirror")
+	_ = fs.Parse(args)
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sync: %v\n", err)
+		os.Exit(1)
+	}
+	path := *configPath
 	client := newGiteaClient(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -83,15 +93,19 @@ func runSync(args []string) {
 		os.Exit(1)
 	}
 	pendingEvents := activity.ExcludeTimestamps(events, existingTimestamps)
-	created, err := mirrorRepo.WriteEvents(ctx, pendingEvents)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "sync: write mirror commits: %v\n", err)
-		os.Exit(1)
+	created := 0
+	if !*dryRun {
+		created, err = mirrorRepo.WriteEvents(ctx, pendingEvents)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sync: write mirror commits: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	summary := report.SyncSummary{
 		ConfigPath:      path,
 		MirrorDir:       cfg.Mirror.Dir,
+		DryRun:          *dryRun,
 		RepositoryCount: len(repos),
 		CollectedCount:  len(events),
 		ExistingCount:   len(existingTimestamps),
@@ -103,9 +117,11 @@ func runSync(args []string) {
 		GeneratedAt:     time.Now().UTC(),
 	}
 
-	if err := mirrorRepo.WriteFile("README.md", report.RenderMirrorREADME(summary)); err != nil {
-		fmt.Fprintf(os.Stderr, "sync: write mirror readme: %v\n", err)
-		os.Exit(1)
+	if !*dryRun {
+		if err := mirrorRepo.WriteFile("README.md", report.RenderMirrorREADME(summary)); err != nil {
+			fmt.Fprintf(os.Stderr, "sync: write mirror readme: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Fprint(os.Stdout, report.RenderSyncSummary(summary))

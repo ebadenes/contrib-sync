@@ -13,6 +13,7 @@ import (
 type SyncSummary struct {
 	ConfigPath          string
 	MirrorDir           string
+	DryRun              bool
 	RepositoryCount     int
 	CollectedCount      int
 	ExistingCount       int
@@ -32,6 +33,9 @@ func RenderSyncSummary(summary SyncSummary) string {
 		fmt.Sprintf("mirror already had %d timestamps", summary.ExistingCount),
 		fmt.Sprintf("pending mirror events: %d", summary.PendingCount),
 		fmt.Sprintf("created mirror commits: %d", summary.CreatedCount),
+	}
+	if summary.DryRun {
+		lines = append(lines, "dry-run mode: mirror repository was not modified")
 	}
 
 	for _, line := range renderCountLines(summary.CountsByType) {
@@ -77,6 +81,9 @@ func RenderMirrorREADME(summary SyncSummary) string {
 		"",
 		"## Activity Breakdown",
 		"",
+	}
+	if summary.DryRun {
+		lines = append(lines[:8], append([]string{"- Mode: `dry-run`", ""}, lines[8:]...)...)
 	}
 
 	for _, line := range renderCountLines(summary.CountsByType) {
