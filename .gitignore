@@ -1,0 +1,9 @@
+bin/
+dist/
+.coverage
+coverage.out
+config.yaml
+*.log
+.DS_Store
+.serena/
+docs/private/

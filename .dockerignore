@@ -1,0 +1,6 @@
+.git
+.serena
+bin
+dist
+coverage.out
+config.yaml
