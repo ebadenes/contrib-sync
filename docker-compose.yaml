@@ -1,0 +1,16 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: contrib-sync:dev
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: contrib-sync:dev
+    command: ["help"]
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - ${HOME}/.contrib-mirror:/mirror
