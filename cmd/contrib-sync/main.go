@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/ebadenes/contrib-sync/internal/config"
 	"github.com/ebadenes/contrib-sync/internal/gitea"
 	"github.com/ebadenes/contrib-sync/internal/mirror"
+	"github.com/ebadenes/contrib-sync/internal/report"
 )
 
 const version = "0.1.0"
@@ -89,29 +89,26 @@ func runSync(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stdout, "loaded config from %s\n", path)
-	fmt.Fprintf(os.Stdout, "discovered %d repositories after filtering\n", len(repos))
-	counts := activity.CountByType(events)
-	fmt.Fprintf(os.Stdout, "collected %d normalized activity events\n", len(events))
-	fmt.Fprintf(os.Stdout, "mirror already had %d timestamps\n", len(existingTimestamps))
-	fmt.Fprintf(os.Stdout, "pending mirror events: %d\n", len(pendingEvents))
-	fmt.Fprintf(os.Stdout, "created mirror commits: %d\n", created)
-	for _, line := range activitySummaryLines(counts) {
-		fmt.Fprintln(os.Stdout, line)
+	summary := report.SyncSummary{
+		ConfigPath:      path,
+		MirrorDir:       cfg.Mirror.Dir,
+		RepositoryCount: len(repos),
+		CollectedCount:  len(events),
+		ExistingCount:   len(existingTimestamps),
+		PendingCount:    len(pendingEvents),
+		CreatedCount:    created,
+		CountsByType:    countsWithDefaults(activity.CountByType(events)),
+		Repositories:    repos,
+		PendingPreview:  report.PreviewEvents(pendingEvents, 10),
+		GeneratedAt:     time.Now().UTC(),
 	}
-	fmt.Fprintln(os.Stdout, "")
-	for _, repo := range repos {
-		fmt.Fprintf(os.Stdout, "- %s/%s\n", repo.Owner.Login, repo.Name)
+
+	if err := mirrorRepo.WriteFile("README.md", report.RenderMirrorREADME(summary)); err != nil {
+		fmt.Fprintf(os.Stderr, "sync: write mirror readme: %v\n", err)
+		os.Exit(1)
 	}
-	if len(pendingEvents) > 0 {
-		fmt.Fprintln(os.Stdout, "")
-		fmt.Fprintln(os.Stdout, "first pending mirror events:")
-		for _, event := range previewEvents(pendingEvents, 10) {
-			fmt.Fprintf(os.Stdout, "- %s | %s | %s\n", event.Timestamp.Format(time.RFC3339), event.Type, event.Repository)
-		}
-	}
-	fmt.Fprintln(os.Stdout, "")
-	fmt.Fprintf(os.Stdout, "mirror directory: %s\n", cfg.Mirror.Dir)
+
+	fmt.Fprint(os.Stdout, report.RenderSyncSummary(summary))
 }
 
 func runStatus(args []string) {
@@ -220,23 +217,15 @@ func gitStatus() string {
 	return "available"
 }
 
-func activitySummaryLines(counts map[string]int) []string {
-	keys := make([]string, 0, len(counts))
-	for key := range counts {
-		keys = append(keys, key)
+func countsWithDefaults(counts map[string]int) map[string]int {
+	result := map[string]int{
+		activity.TypeCommit: 0,
+		activity.TypePR:     0,
+		activity.TypeIssue:  0,
+		activity.TypeReview: 0,
 	}
-	sort.Strings(keys)
-
-	lines := make([]string, 0, len(keys))
-	for _, key := range keys {
-		lines = append(lines, fmt.Sprintf("- %s: %d", key, counts[key]))
+	for key, value := range counts {
+		result[key] = value
 	}
-	return lines
-}
-
-func previewEvents(events []activity.Event, limit int) []activity.Event {
-	if len(events) <= limit {
-		return events
-	}
-	return events[:limit]
+	return result
 }

@@ -2,6 +2,7 @@ package mirror
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -106,6 +107,23 @@ func TestWriteEventsSkipsTimestampsExcludedByActivityLayer(t *testing.T) {
 	logCount := strings.TrimSpace(runGitTest(t, repo.Dir, "rev-list", "--count", "HEAD"))
 	if got, want := logCount, "2"; got != want {
 		t.Fatalf("unexpected commit count: got %q want %q", got, want)
+	}
+}
+
+func TestWriteFileCreatesMirrorReadme(t *testing.T) {
+	repo := NewRepository(t.TempDir(), "alice@example.com")
+	content := "# Contribution Mirror\n"
+
+	if err := repo.WriteFile("README.md", content); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	data, err := os.ReadFile(repo.Dir + "/README.md")
+	if err != nil {
+		t.Fatalf("read readme: %v", err)
+	}
+	if got, want := string(data), content; got != want {
+		t.Fatalf("unexpected readme content: got %q want %q", got, want)
 	}
 }
 

@@ -118,6 +118,17 @@ func (r *Repository) WriteEvents(ctx context.Context, events []activity.Event) (
 	return created, nil
 }
 
+func (r *Repository) WriteFile(name, content string) error {
+	if err := os.MkdirAll(r.Dir, 0o755); err != nil {
+		return fmt.Errorf("create mirror directory %s: %w", r.Dir, err)
+	}
+	path := filepath.Join(r.Dir, name)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write mirror file %s: %w", path, err)
+	}
+	return nil
+}
+
 func (r *Repository) runGit(ctx context.Context, extraEnv []string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = r.Dir
