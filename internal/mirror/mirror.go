@@ -88,6 +88,14 @@ func (r *Repository) ExistingTimestamps(ctx context.Context) ([]time.Time, error
 }
 
 func (r *Repository) WriteEvents(ctx context.Context, events []activity.Event) (int, error) {
+	return r.writeEvents(ctx, events, "")
+}
+
+func (r *Repository) WriteEventsWithREADME(ctx context.Context, events []activity.Event, readme string) (int, error) {
+	return r.writeEvents(ctx, events, readme)
+}
+
+func (r *Repository) writeEvents(ctx context.Context, events []activity.Event, readme string) (int, error) {
 	if len(events) == 0 {
 		return 0, nil
 	}
@@ -100,9 +108,15 @@ func (r *Repository) WriteEvents(ctx context.Context, events []activity.Event) (
 
 	ordered := append([]activity.Event(nil), events...)
 	activity.Sort(ordered)
+	stageReadme := strings.TrimSpace(readme) != ""
+	if stageReadme {
+		if err := r.WriteFile("README.md", readme); err != nil {
+			return 0, err
+		}
+	}
 
 	created := 0
-	for _, event := range ordered {
+	for index, event := range ordered {
 		env := []string{
 			"GIT_AUTHOR_NAME=" + defaultAuthorName,
 			"GIT_AUTHOR_EMAIL=" + r.Email,
@@ -115,6 +129,12 @@ func (r *Repository) WriteEvents(ctx context.Context, events []activity.Event) (
 		message := strings.TrimSpace(event.Message)
 		if message == "" {
 			message = fmt.Sprintf("mirror %s activity from %s", event.Type, event.Repository)
+		}
+
+		if stageReadme && index == 0 {
+			if _, err := r.runGit(ctx, nil, "add", "README.md"); err != nil {
+				return created, fmt.Errorf("stage mirror readme: %w", err)
+			}
 		}
 
 		if _, err := r.runGit(ctx, env, "commit", "--allow-empty", "-m", message); err != nil {

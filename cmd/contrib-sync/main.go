@@ -93,14 +93,9 @@ func runSync(args []string) {
 		os.Exit(1)
 	}
 	pendingEvents := activity.ExcludeTimestamps(events, existingTimestamps)
+	countsByType := countsWithDefaults(activity.CountByType(events))
+	preview := report.PreviewEvents(pendingEvents, 10)
 	created := 0
-	if !*dryRun {
-		created, err = mirrorRepo.WriteEvents(ctx, pendingEvents)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "sync: write mirror commits: %v\n", err)
-			os.Exit(1)
-		}
-	}
 
 	summary := report.SyncSummary{
 		ConfigPath:      path,
@@ -111,17 +106,19 @@ func runSync(args []string) {
 		ExistingCount:   len(existingTimestamps),
 		PendingCount:    len(pendingEvents),
 		CreatedCount:    created,
-		CountsByType:    countsWithDefaults(activity.CountByType(events)),
+		CountsByType:    countsByType,
 		Repositories:    repos,
-		PendingPreview:  report.PreviewEvents(pendingEvents, 10),
+		PendingPreview:  preview,
 		GeneratedAt:     time.Now().UTC(),
 	}
 
 	if !*dryRun {
-		if err := mirrorRepo.WriteFile("README.md", report.RenderMirrorREADME(summary)); err != nil {
-			fmt.Fprintf(os.Stderr, "sync: write mirror readme: %v\n", err)
+		created, err = mirrorRepo.WriteEventsWithREADME(ctx, pendingEvents, report.RenderMirrorREADME(summary))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sync: write mirror commits: %v\n", err)
 			os.Exit(1)
 		}
+		summary.CreatedCount = created
 	}
 
 	fmt.Fprint(os.Stdout, report.RenderSyncSummary(summary))

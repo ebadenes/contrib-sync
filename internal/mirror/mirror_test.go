@@ -127,6 +127,31 @@ func TestWriteFileCreatesMirrorReadme(t *testing.T) {
 	}
 }
 
+func TestWriteEventsWithReadmeStagesReadmeIntoHistory(t *testing.T) {
+	repo := NewRepository(t.TempDir(), "alice@example.com")
+	t1 := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
+
+	created, err := repo.WriteEventsWithREADME(context.Background(), []activity.Event{
+		{Type: activity.TypeCommit, Repository: "alice/demo", Message: "primer evento", Timestamp: t1},
+	}, "# Contribution Mirror\n")
+	if err != nil {
+		t.Fatalf("write events with readme: %v", err)
+	}
+	if got, want := created, 1; got != want {
+		t.Fatalf("unexpected created count: got %d want %d", got, want)
+	}
+
+	status := strings.TrimSpace(runGitTest(t, repo.Dir, "status", "--short"))
+	if status != "" {
+		t.Fatalf("expected clean mirror repo, got status %q", status)
+	}
+
+	readmeAtHead := runGitTest(t, repo.Dir, "show", "HEAD:README.md")
+	if got, want := readmeAtHead, "# Contribution Mirror\n"; got != want {
+		t.Fatalf("unexpected README at HEAD: got %q want %q", got, want)
+	}
+}
+
 func TestExistingTimestampsReturnsEmptyWhenMirrorRepoDoesNotExist(t *testing.T) {
 	repo := NewRepository(t.TempDir()+"/missing-mirror", "alice@example.com")
 
