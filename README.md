@@ -25,6 +25,8 @@ This repository is in early development. The initial scaffold is in place and th
 
 `contrib-sync sync --dry-run` collects, deduplicates, and reports pending activity without writing commits to the mirror repository.
 
+`contrib-sync sync --push` writes the missing mirror commits locally and then pushes `main` to the configured mirror remote.
+
 ## Development
 
 ### Requirements
@@ -57,6 +59,18 @@ Create your local `config.yaml` from `config.example.yaml`, then run:
 
 ```bash
 make run
+```
+
+To inspect the pending work without modifying the mirror:
+
+```bash
+./bin/contrib-sync sync --dry-run
+```
+
+To write the local mirror and push it to the configured remote:
+
+```bash
+./bin/contrib-sync sync --push
 ```
 
 ## Configuration

@@ -152,6 +152,54 @@ func TestWriteEventsWithReadmeStagesReadmeIntoHistory(t *testing.T) {
 	}
 }
 
+func TestHasRemoteReportsConfiguredRemote(t *testing.T) {
+	repo := NewRepository(t.TempDir(), "alice@example.com")
+	if err := repo.Ensure(context.Background()); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	remoteDir := t.TempDir()
+	runGitTest(t, remoteDir, "init", "--bare")
+	runGitTest(t, repo.Dir, "remote", "add", "origin", remoteDir)
+
+	exists, err := repo.HasRemote(context.Background(), "origin")
+	if err != nil {
+		t.Fatalf("has remote: %v", err)
+	}
+	if !exists {
+		t.Fatal("expected remote origin to exist")
+	}
+}
+
+func TestPushPushesMirrorRepositoryToRemote(t *testing.T) {
+	repo := NewRepository(t.TempDir(), "alice@example.com")
+	remoteDir := t.TempDir()
+	runGitTest(t, remoteDir, "init", "--bare")
+
+	created, err := repo.WriteEventsWithREADME(context.Background(), []activity.Event{
+		{Type: activity.TypeCommit, Repository: "alice/demo", Message: "primer evento", Timestamp: time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)},
+	}, "# Contribution Mirror\n")
+	if err != nil {
+		t.Fatalf("write events with readme: %v", err)
+	}
+	if created != 1 {
+		t.Fatalf("unexpected created count: %d", created)
+	}
+	runGitTest(t, repo.Dir, "remote", "add", "origin", remoteDir)
+
+	result, err := repo.Push(context.Background(), "origin")
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+	if got, want := result.Remote, "origin"; got != want {
+		t.Fatalf("unexpected remote: got %q want %q", got, want)
+	}
+
+	count := strings.TrimSpace(runGitTest(t, remoteDir, "rev-list", "--count", "main"))
+	if got, want := count, "1"; got != want {
+		t.Fatalf("unexpected remote commit count: got %q want %q", got, want)
+	}
+}
+
 func TestExistingTimestampsReturnsEmptyWhenMirrorRepoDoesNotExist(t *testing.T) {
 	repo := NewRepository(t.TempDir()+"/missing-mirror", "alice@example.com")
 

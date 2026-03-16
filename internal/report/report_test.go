@@ -13,6 +13,7 @@ func TestRenderSyncSummaryIncludesKeyMetrics(t *testing.T) {
 	summary := SyncSummary{
 		ConfigPath:      "config.yaml",
 		MirrorDir:       "/tmp/mirror",
+		MirrorRemote:    "origin",
 		RepositoryCount: 2,
 		CollectedCount:  5,
 		ExistingCount:   2,
@@ -33,6 +34,7 @@ func TestRenderSyncSummaryIncludesKeyMetrics(t *testing.T) {
 		"loaded config from config.yaml",
 		"discovered 2 repositories after filtering",
 		"created mirror commits: 3",
+		"mirror directory: /tmp/mirror",
 		"- commits: 2",
 		"- alice/demo",
 		"first pending mirror events:",
@@ -47,6 +49,7 @@ func TestRenderSyncSummaryIncludesDryRunNotice(t *testing.T) {
 	summary := SyncSummary{
 		ConfigPath:      "config.yaml",
 		MirrorDir:       "/tmp/mirror",
+		MirrorRemote:    "origin",
 		DryRun:          true,
 		RepositoryCount: 1,
 		CollectedCount:  2,
@@ -64,6 +67,7 @@ func TestRenderSyncSummaryIncludesDryRunNotice(t *testing.T) {
 
 func TestRenderMirrorREADMEIncludesRepositoriesAndBreakdown(t *testing.T) {
 	summary := SyncSummary{
+		MirrorRemote:    "origin",
 		RepositoryCount: 1,
 		CollectedCount:  4,
 		ExistingCount:   1,
@@ -84,6 +88,7 @@ func TestRenderMirrorREADMEIncludesRepositoriesAndBreakdown(t *testing.T) {
 	for _, expected := range []string{
 		"# Contribution Mirror",
 		"- Repositories scanned: `1`",
+		"- Mirror remote: `origin`",
 		"- commits: 2",
 		"- `alice/demo`",
 		"## Recent Pending Events Preview",
@@ -98,6 +103,7 @@ func TestRenderMirrorREADMEIncludesRepositoriesAndBreakdown(t *testing.T) {
 func TestRenderMirrorREADMEIncludesDryRunMode(t *testing.T) {
 	summary := SyncSummary{
 		DryRun:          true,
+		MirrorRemote:    "origin",
 		RepositoryCount: 1,
 		CollectedCount:  1,
 		GeneratedAt:     time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC),
@@ -107,5 +113,21 @@ func TestRenderMirrorREADMEIncludesDryRunMode(t *testing.T) {
 	output := RenderMirrorREADME(summary)
 	if !strings.Contains(output, "- Mode: `dry-run`") {
 		t.Fatalf("expected dry-run marker in readme\noutput:\n%s", output)
+	}
+}
+
+func TestRenderSyncSummaryIncludesPushStatus(t *testing.T) {
+	summary := SyncSummary{
+		ConfigPath:    "config.yaml",
+		MirrorDir:     "/tmp/mirror",
+		MirrorRemote:  "origin",
+		PushEnabled:   true,
+		PushPerformed: true,
+		CountsByType:  map[string]int{activity.TypeCommit: 1},
+	}
+
+	output := RenderSyncSummary(summary)
+	if !strings.Contains(output, "mirror push: ok (origin -> main)") {
+		t.Fatalf("expected push status in summary\noutput:\n%s", output)
 	}
 }

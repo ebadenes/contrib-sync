@@ -13,7 +13,10 @@ import (
 type SyncSummary struct {
 	ConfigPath          string
 	MirrorDir           string
+	MirrorRemote        string
 	DryRun              bool
+	PushEnabled         bool
+	PushPerformed       bool
 	RepositoryCount     int
 	CollectedCount      int
 	ExistingCount       int
@@ -36,6 +39,13 @@ func RenderSyncSummary(summary SyncSummary) string {
 	}
 	if summary.DryRun {
 		lines = append(lines, "dry-run mode: mirror repository was not modified")
+	}
+	if summary.PushEnabled {
+		if summary.PushPerformed {
+			lines = append(lines, fmt.Sprintf("mirror push: ok (%s -> main)", summary.MirrorRemote))
+		} else {
+			lines = append(lines, fmt.Sprintf("mirror push: skipped (%s)", summary.MirrorRemote))
+		}
 	}
 
 	for _, line := range renderCountLines(summary.CountsByType) {
@@ -78,12 +88,20 @@ func RenderMirrorREADME(summary SyncSummary) string {
 		fmt.Sprintf("- Existing mirror timestamps: `%d`", summary.ExistingCount),
 		fmt.Sprintf("- Pending events: `%d`", summary.PendingCount),
 		fmt.Sprintf("- Commits created in this sync: `%d`", summary.CreatedCount),
+		fmt.Sprintf("- Mirror remote: `%s`", summary.MirrorRemote),
 		"",
 		"## Activity Breakdown",
 		"",
 	}
 	if summary.DryRun {
 		lines = append(lines[:8], append([]string{"- Mode: `dry-run`", ""}, lines[8:]...)...)
+	}
+	if summary.PushEnabled {
+		mode := "not pushed"
+		if summary.PushPerformed {
+			mode = "pushed"
+		}
+		lines = append(lines[:8], append([]string{fmt.Sprintf("- Push: `%s`", mode), ""}, lines[8:]...)...)
 	}
 
 	for _, line := range renderCountLines(summary.CountsByType) {

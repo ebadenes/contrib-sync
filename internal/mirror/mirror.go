@@ -20,6 +20,11 @@ type Repository struct {
 	Email string
 }
 
+type PushResult struct {
+	Remote string
+	Branch string
+}
+
 func NewRepository(dir, email string) *Repository {
 	return &Repository{
 		Dir:   strings.TrimSpace(dir),
@@ -155,6 +160,48 @@ func (r *Repository) WriteFile(name, content string) error {
 		return fmt.Errorf("write mirror file %s: %w", path, err)
 	}
 	return nil
+}
+
+func (r *Repository) HasRemote(ctx context.Context, name string) (bool, error) {
+	if strings.TrimSpace(name) == "" {
+		return false, errors.New("mirror remote is required")
+	}
+	if err := r.Ensure(ctx); err != nil {
+		return false, err
+	}
+
+	_, err := r.runGit(ctx, nil, "remote", "get-url", strings.TrimSpace(name))
+	if err != nil {
+		if strings.Contains(err.Error(), "No such remote") {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspect mirror remote %s: %w", name, err)
+	}
+	return true, nil
+}
+
+func (r *Repository) Push(ctx context.Context, remote string) (PushResult, error) {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return PushResult{}, errors.New("mirror remote is required")
+	}
+	if err := r.Ensure(ctx); err != nil {
+		return PushResult{}, err
+	}
+
+	exists, err := r.HasRemote(ctx, remote)
+	if err != nil {
+		return PushResult{}, err
+	}
+	if !exists {
+		return PushResult{}, fmt.Errorf("mirror remote %q does not exist", remote)
+	}
+
+	if _, err := r.runGit(ctx, nil, "push", remote, "main"); err != nil {
+		return PushResult{}, fmt.Errorf("push mirror repository to %s: %w", remote, err)
+	}
+
+	return PushResult{Remote: remote, Branch: "main"}, nil
 }
 
 func (r *Repository) runGit(ctx context.Context, extraEnv []string, args ...string) (string, error) {

@@ -23,7 +23,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stdout, "A CLI to mirror contribution timestamps from Gitea into a GitHub mirror repository.")
 	fmt.Fprintln(os.Stdout, "")
 	fmt.Fprintln(os.Stdout, "Usage:")
-	fmt.Fprintln(os.Stdout, "  contrib-sync sync [--config path] [--dry-run]")
+	fmt.Fprintln(os.Stdout, "  contrib-sync sync [--config path] [--dry-run] [--push]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync init [--config path]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync status [--config path]")
 	fmt.Fprintln(os.Stdout, "  contrib-sync version")
@@ -57,6 +57,7 @@ func runSync(args []string) {
 	fs := flag.NewFlagSet("sync", flag.ExitOnError)
 	configPath := fs.String("config", config.DefaultConfigPath(), "Path to the YAML configuration file")
 	dryRun := fs.Bool("dry-run", false, "Collect and report activity without writing commits to the mirror")
+	pushMirror := fs.Bool("push", false, "Push the mirror repository to the configured remote after writing commits")
 	_ = fs.Parse(args)
 
 	cfg, err := config.Load(*configPath)
@@ -100,7 +101,9 @@ func runSync(args []string) {
 	summary := report.SyncSummary{
 		ConfigPath:      path,
 		MirrorDir:       cfg.Mirror.Dir,
+		MirrorRemote:    cfg.Mirror.Remote,
 		DryRun:          *dryRun,
+		PushEnabled:     *pushMirror,
 		RepositoryCount: len(repos),
 		CollectedCount:  len(events),
 		ExistingCount:   len(existingTimestamps),
@@ -119,6 +122,15 @@ func runSync(args []string) {
 			os.Exit(1)
 		}
 		summary.CreatedCount = created
+
+		if *pushMirror {
+			_, err = mirrorRepo.Push(ctx, cfg.Mirror.Remote)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "sync: push mirror repository: %v\n", err)
+				os.Exit(1)
+			}
+			summary.PushPerformed = true
+		}
 	}
 
 	fmt.Fprint(os.Stdout, report.RenderSyncSummary(summary))
@@ -146,6 +158,16 @@ func runStatus(args []string) {
 		fmt.Fprintf(os.Stdout, "Repository discovery: error (%v)\n", repoErr)
 	} else {
 		fmt.Fprintf(os.Stdout, "Repository discovery: ok (%d repositories after filtering)\n", len(repos))
+	}
+
+	mirrorRepo := mirror.NewRepository(cfg.Mirror.Dir, cfg.Mirror.Email)
+	hasRemote, remoteErr := mirrorRepo.HasRemote(ctx, cfg.Mirror.Remote)
+	if remoteErr != nil {
+		fmt.Fprintf(os.Stdout, "Mirror remote: error (%v)\n", remoteErr)
+	} else if hasRemote {
+		fmt.Fprintf(os.Stdout, "Mirror remote: ok (%s)\n", cfg.Mirror.Remote)
+	} else {
+		fmt.Fprintf(os.Stdout, "Mirror remote: missing (%s)\n", cfg.Mirror.Remote)
 	}
 
 	fmt.Fprintf(os.Stdout, "Mirror directory: %s\n", mirrorStatus(cfg.Mirror.Dir))
